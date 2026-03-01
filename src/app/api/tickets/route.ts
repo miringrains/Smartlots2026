@@ -83,20 +83,46 @@ export async function POST(request: NextRequest) {
   }
 
   const photoErrors: string[] = [];
-  const photos = formData.getAll("photo") as File[];
+  const photoKeys = ["photo", "photos", "image", "images", "file", "files"];
+  let photos: File[] = [];
+  let matchedKey = "";
+  for (const key of photoKeys) {
+    const files = formData.getAll(key).filter(
+      (entry): entry is File => entry instanceof File && entry.size > 0
+    );
+    if (files.length > 0) {
+      photos = files;
+      matchedKey = key;
+      break;
+    }
+  }
+
+  const allKeys = [...formData.keys()];
+  const fileEntries: string[] = [];
+  for (const key of allKeys) {
+    const vals = formData.getAll(key);
+    for (const v of vals) {
+      if (v instanceof File) {
+        fileEntries.push(`${key}: ${v.name} (${v.size} bytes, ${v.type})`);
+      }
+    }
+  }
+
   const positions = ["front", "back", "left", "right"];
 
   for (let i = 0; i < photos.length; i++) {
     const file = photos[i];
-    if (!file || !file.size) continue;
-
     const position = positions[i] || `photo_${i}`;
     const ext = file.name.split(".").pop() || "jpg";
     const storagePath = `${locationId}/${ticket.id}/${position}.${ext}`;
 
+    const buffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await supabase.storage
       .from("ticket-photos")
-      .upload(storagePath, file, { contentType: file.type, upsert: true });
+      .upload(storagePath, buffer, {
+        contentType: file.type || "image/jpeg",
+        upsert: true,
+      });
 
     if (uploadError) {
       photoErrors.push(`${position}: ${uploadError.message}`);
@@ -124,6 +150,9 @@ export async function POST(request: NextRequest) {
   return NextResponse.json(
     {
       data: { id: ticket.id },
+      photosReceived: photos.length,
+      matchedFormDataKey: matchedKey || null,
+      formDataFileEntries: fileEntries,
       ...(photoErrors.length > 0 ? { photoWarnings: photoErrors } : {}),
     },
     { status: 201 }
