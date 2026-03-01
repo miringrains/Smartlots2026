@@ -34,9 +34,14 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/forgot-password") ||
     request.nextUrl.pathname.startsWith("/reset-password");
 
+  const isPublicRoute =
+    request.nextUrl.pathname.startsWith("/privacy") ||
+    request.nextUrl.pathname.startsWith("/terms") ||
+    request.nextUrl.pathname.startsWith("/support");
+
   const isApiRoute = request.nextUrl.pathname.startsWith("/api");
 
-  if (!user && !isAuthRoute && !isApiRoute) {
+  if (!user && !isAuthRoute && !isApiRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
