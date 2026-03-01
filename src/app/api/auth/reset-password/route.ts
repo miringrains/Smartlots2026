@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +38,12 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 400 });
     }
+
+    const admin = createAdminClient();
+    await admin
+      .from("users")
+      .update({ requires_password_change: false, is_first_login: false })
+      .eq("id", data.user!.id);
 
     return NextResponse.json({ message: "ok" });
   } catch {

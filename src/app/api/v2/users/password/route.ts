@@ -32,6 +32,12 @@ export async function PUT(request: NextRequest) {
     });
 
     if (updateError) return errorResponse(updateError.message);
+
+    await admin
+      .from("users")
+      .update({ requires_password_change: false, is_first_login: false })
+      .eq("id", user.id);
+
     return NextResponse.json({ message: "ok" });
   } catch {
     return errorResponse("Internal server error", 500);

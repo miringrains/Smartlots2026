@@ -36,9 +36,18 @@ export async function POST(request: NextRequest) {
       .eq("is_deleted", false)
       .single();
 
+    if (profile?.is_first_login) {
+      await authedClient
+        .from("users")
+        .update({ is_first_login: false })
+        .eq("id", authData.user.id);
+    }
+
     return NextResponse.json({
       data: {
         token: authData.session.access_token,
+        refreshToken: authData.session.refresh_token,
+        expiresAt: authData.session.expires_at,
         user: profile ? mapUser(profile) : null,
       },
     });
