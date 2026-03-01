@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getAuthenticatedUser, getUserProfile, jsonResponse, errorResponse } from "@/lib/api-helpers";
+import { getAuthenticatedUser, getUserProfile, getLocationScope, jsonResponse, errorResponse } from "@/lib/api-helpers";
 import { mapTicket } from "@/lib/dto";
 
 export async function GET(request: NextRequest) {
@@ -8,6 +8,8 @@ export async function GET(request: NextRequest) {
 
   const profile = await getUserProfile(supabase, user.id);
   if (!profile) return errorResponse("Profile not found", 404);
+
+  const locationIds = await getLocationScope(supabase, profile);
 
   const url = new URL(request.url);
   const vin = url.searchParams.get("vin");
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from("tickets")
     .select("*, ticket_images(*), spots(*), ticket_parking(*)")
-    .eq("location_id", profile.location_id)
+    .in("location_id", locationIds)
     .eq("is_deleted", false);
 
   if (vin) query = query.ilike("vin", `%${vin}%`);

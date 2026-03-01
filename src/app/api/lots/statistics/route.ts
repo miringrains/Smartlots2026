@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getAuthenticatedUser, getUserProfile, jsonResponse, errorResponse } from "@/lib/api-helpers";
+import { getAuthenticatedUser, getUserProfile, getLocationScope, jsonResponse, errorResponse } from "@/lib/api-helpers";
 
 export async function GET(request: NextRequest) {
   const { user, supabase, error } = await getAuthenticatedUser(request);
@@ -8,10 +8,12 @@ export async function GET(request: NextRequest) {
   const profile = await getUserProfile(supabase, user.id);
   if (!profile) return errorResponse("Profile not found", 404);
 
+  const locationIds = await getLocationScope(supabase, profile);
+
   const { data: lots } = await supabase
     .from("lots")
     .select("id, name, spots(id)")
-    .eq("location_id", profile.location_id)
+    .in("location_id", locationIds)
     .eq("is_deleted", false);
 
   if (!lots) return jsonResponse([]);

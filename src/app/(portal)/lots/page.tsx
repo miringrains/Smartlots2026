@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Plus, ParkingSquare } from "lucide-react";
@@ -8,6 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,19 +31,50 @@ import { pageTransition, staggerContainer, staggerItem } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
 import type { LotDTO, OccupancyDTO } from "@/lib/dto";
 
+interface LocationOption {
+  id: string;
+  name: string;
+}
+
 export default function LotsPage() {
   const [lots, setLots] = useState<LotDTO[]>([]);
   const [stats, setStats] = useState<OccupancyDTO[]>([]);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
+  const [isAdminPlus, setIsAdminPlus] = useState(false);
   const [loading, setLoading] = useState(true);
   const [newLotName, setNewLotName] = useState("");
   const [newSpots, setNewSpots] = useState("");
+  const [newLocationId, setNewLocationId] = useState("");
   const [creating, setCreating] = useState(false);
 
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) return;
     const headers = { Authorization: `Bearer ${session.access_token}` };
+
+    const { data: me } = await supabase
+      .from("users")
+      .select("user_type, location_id")
+      .eq("id", session.user.id)
+      .single();
+
+    if (me) {
+      const admin =
+        me.user_type === "ADMIN" || me.user_type === "SUPER_ADMIN";
+      setIsAdminPlus(admin);
+      setNewLocationId(me.location_id || "");
+    }
+
+    const { data: locData } = await supabase
+      .from("locations")
+      .select("id, name")
+      .eq("is_deleted", false)
+      .order("name");
+
+    if (locData) setLocations(locData);
 
     const [lotsRes, statsRes] = await Promise.all([
       fetch("/api/lots", { headers }),
@@ -48,19 +86,26 @@ export default function LotsPage() {
     setLots(lotsData.data || []);
     setStats(statsData.data || []);
     setLoading(false);
-  }
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   async function createLot() {
     if (!newLotName.trim()) return;
     setCreating(true);
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) return;
 
     const spotLabels = newSpots
-      ? newSpots.split(",").map((s) => s.trim()).filter(Boolean)
+      ? newSpots
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : [];
 
     await fetch("/api/lots", {
@@ -69,7 +114,11 @@ export default function LotsPage() {
         Authorization: `Bearer ${session.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: newLotName, spots: spotLabels }),
+      body: JSON.stringify({
+        name: newLotName,
+        spots: spotLabels,
+        locationId: newLocationId || undefined,
+      }),
     });
 
     setNewLotName("");
@@ -88,7 +137,10 @@ export default function LotsPage() {
 
   return (
     <motion.div variants={pageTransition} initial="hidden" animate="visible">
-      <PageHeader title="Lots & Parking" description="Manage parking lots and spots">
+      <PageHeader
+        title="Lots & Parking"
+        description="Manage parking lots and spots"
+      >
         <Dialog>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -101,6 +153,26 @@ export default function LotsPage() {
               <DialogTitle>Create New Lot</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
+              {isAdminPlus && locations.length > 1 && (
+                <div className="space-y-2">
+                  <Label>Location</Label>
+                  <Select
+                    value={newLocationId}
+                    onValueChange={setNewLocationId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations.map((loc) => (
+                        <SelectItem key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Lot Name</Label>
                 <Input
@@ -122,7 +194,10 @@ export default function LotsPage() {
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
-              <Button onClick={createLot} disabled={creating || !newLotName.trim()}>
+              <Button
+                onClick={createLot}
+                disabled={creating || !newLotName.trim()}
+              >
                 {creating ? "Creating..." : "Create Lot"}
               </Button>
             </DialogFooter>
@@ -133,7 +208,10 @@ export default function LotsPage() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-40 bg-muted rounded-xl animate-pulse" />
+            <div
+              key={i}
+              className="h-40 bg-muted rounded-xl animate-pulse"
+            />
           ))}
         </div>
       ) : lots.length === 0 ? (
@@ -158,13 +236,22 @@ export default function LotsPage() {
                     <CardHeader className="pb-2">
                       <CardTitle className="flex items-center justify-between">
                         <span className="flex items-center gap-2">
-                          <ParkingSquare size={16} strokeWidth={1.75} className="text-primary" />
+                          <ParkingSquare
+                            size={16}
+                            strokeWidth={1.75}
+                            className="text-primary"
+                          />
                           {lot.name}
                         </span>
                         <span className="text-caption text-muted-foreground font-normal">
                           {lot.spots.length} spots
                         </span>
                       </CardTitle>
+                      {lot.location && (
+                        <p className="text-caption text-muted-foreground">
+                          {lot.location.name}
+                        </p>
+                      )}
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">

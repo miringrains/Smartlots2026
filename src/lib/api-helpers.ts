@@ -58,3 +58,18 @@ export async function getUserProfile(
   if (error) return null;
   return data;
 }
+
+export async function getLocationScope(
+  supabase: any,
+  profile: any
+): Promise<string[]> {
+  if (profile.user_type === "ADMIN" || profile.user_type === "SUPER_ADMIN") {
+    const { data } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("company_id", profile.company_id)
+      .eq("is_deleted", false);
+    return (data || []).map((l: any) => l.id);
+  }
+  return [profile.location_id];
+}

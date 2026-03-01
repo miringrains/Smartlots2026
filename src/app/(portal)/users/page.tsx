@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Plus, Users, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,28 +39,51 @@ import { createClient } from "@/lib/supabase/client";
 import { formatDateShort } from "@/lib/utils";
 import type { UserDTO } from "@/lib/dto";
 
+interface LocationOption {
+  id: string;
+  name: string;
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<UserDTO[]>([]);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ userType: string; companyId: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [open, setOpen] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState("USER");
+  const [newLocationId, setNewLocationId] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  async function fetchUsers() {
+  const fetchData = useCallback(async () => {
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) return;
 
-    const { data } = await supabase
+    const { data: me } = await supabase
+      .from("users")
+      .select("user_type, company_id, location_id")
+      .eq("id", session.user.id)
+      .single();
+
+    if (me) {
+      setCurrentUser({ userType: me.user_type, companyId: me.company_id });
+      setNewLocationId(me.location_id || "");
+    }
+
+    const { data: usersData } = await supabase
       .from("users")
       .select("*, locations(*)")
       .eq("is_deleted", false)
       .order("created_at", { ascending: false });
 
-    if (data) {
+    if (usersData) {
       setUsers(
-        data.map((u) => ({
+        usersData.map((u) => ({
           id: u.id,
           email: u.email,
           userType: u.user_type,
@@ -69,78 +92,89 @@ export default function UsersPage() {
           createdAt: u.created_at,
           isFirstLogin: u.is_first_login,
           requiresPasswordChange: u.requires_password_change,
-          location: u.locations ? { id: u.locations.id, name: u.locations.name, address: u.locations.address } : null,
+          location: u.locations
+            ? {
+                id: u.locations.id,
+                name: u.locations.name,
+                address: u.locations.address,
+              }
+            : null,
         }))
       );
     }
-    setLoading(false);
-  }
 
-  useEffect(() => { fetchUsers(); }, []);
+    const { data: locData } = await supabase
+      .from("locations")
+      .select("id, name")
+      .eq("is_deleted", false)
+      .order("name");
+
+    if (locData) {
+      setLocations(locData);
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   async function createUser() {
     if (!newEmail || !newPassword) return;
     setCreating(true);
+    setErrorMsg("");
 
     try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setCreating(false);
+        return;
+      }
+
       const res = await fetch("/api/admin/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newEmail, password: newPassword, userType: newRole }),
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: newEmail,
+          password: newPassword,
+          userType: newRole,
+          locationId: newLocationId || undefined,
+        }),
       });
 
       if (!res.ok) {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const adminRes = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users`,
-          {
-            method: "POST",
-            headers: {
-              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-              Authorization: `Bearer ${session.access_token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              email: newEmail,
-              password: newPassword,
-              email_confirm: true,
-            }),
-          }
-        );
-
-        if (adminRes.ok) {
-          const userData = await adminRes.json();
-          const { data: profile } = await supabase.from("users").select("*").eq("id", userData.id).single();
-          if (!profile) {
-            const currentUser = users[0];
-            await supabase.from("users").insert({
-              id: userData.id,
-              email: newEmail,
-              user_type: newRole,
-              company_id: currentUser?.companyId,
-              location_id: currentUser?.locationId,
-            });
-          }
-        }
+        const err = await res.json();
+        setErrorMsg(err.error || "Failed to create user");
+        setCreating(false);
+        return;
       }
+
+      setNewEmail("");
+      setNewPassword("");
+      setNewRole("USER");
+      setNewLocationId(currentUser?.companyId ? "" : "");
+      setOpen(false);
+      fetchData();
     } catch (e) {
       console.error(e);
+      setErrorMsg("Unexpected error");
     }
-
-    setNewEmail("");
-    setNewPassword("");
-    setNewRole("USER");
     setCreating(false);
-    fetchUsers();
   }
+
+  const isSuperAdmin = currentUser?.userType === "SUPER_ADMIN";
 
   return (
     <motion.div variants={pageTransition} initial="hidden" animate="visible">
       <PageHeader title="Users" description="Manage user accounts and roles">
-        <Dialog>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); setErrorMsg(""); }}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus size={14} />
@@ -179,17 +213,42 @@ export default function UsersPage() {
                   <SelectContent>
                     <SelectItem value="USER">Attendant</SelectItem>
                     <SelectItem value="ADMIN">Admin</SelectItem>
-                    <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                    {isSuperAdmin && (
+                      <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <Select value={newLocationId} onValueChange={setNewLocationId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {errorMsg && (
+                <p className="text-sm text-destructive">{errorMsg}</p>
+              )}
             </div>
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
-              <Button onClick={createUser} disabled={creating || !newEmail || !newPassword}>
-                {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button
+                onClick={createUser}
+                disabled={creating || !newEmail || !newPassword}
+              >
+                {creating && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Create User
               </Button>
             </DialogFooter>
@@ -203,30 +262,43 @@ export default function UsersPage() {
             {loading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+                  <div
+                    key={i}
+                    className="h-12 bg-muted rounded animate-pulse"
+                  />
                 ))}
               </div>
             ) : users.length === 0 ? (
-              <EmptyState icon={Users} title="No users" description="Add your first team member" />
+              <EmptyState
+                icon={Users}
+                title="No users"
+                description="Add your first team member"
+              />
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead className="hidden sm:table-cell">Location</TableHead>
-                    <TableHead className="hidden md:table-cell">Joined</TableHead>
+                    <TableHead className="hidden sm:table-cell">
+                      Location
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Joined
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.email}</TableCell>
+                      <TableCell className="font-medium">
+                        {user.email}
+                      </TableCell>
                       <TableCell>
                         <StatusBadge status={user.userType} />
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-muted-foreground">
-                        {user.location?.name || "—"}
+                        {user.location?.name || "\u2014"}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">
                         {formatDateShort(user.createdAt)}

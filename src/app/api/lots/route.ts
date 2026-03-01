@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedUser, getUserProfile, jsonResponse, errorResponse } from "@/lib/api-helpers";
+import { getAuthenticatedUser, getUserProfile, getLocationScope, jsonResponse, errorResponse } from "@/lib/api-helpers";
 import { mapLot } from "@/lib/dto";
 
 export async function GET(request: NextRequest) {
@@ -9,10 +9,12 @@ export async function GET(request: NextRequest) {
   const profile = await getUserProfile(supabase, user.id);
   if (!profile) return errorResponse("Profile not found", 404);
 
+  const locationIds = await getLocationScope(supabase, profile);
+
   const { data, error: queryError } = await supabase
     .from("lots")
     .select("*, spots(*), locations(*)")
-    .eq("location_id", profile.location_id)
+    .in("location_id", locationIds)
     .eq("is_deleted", false)
     .order("name");
 
@@ -28,12 +30,22 @@ export async function POST(request: NextRequest) {
     const profile = await getUserProfile(supabase, user.id);
     if (!profile) return errorResponse("Profile not found", 404);
 
-    const { name, spots } = await request.json();
+    const { name, spots, locationId } = await request.json();
     if (!name) return errorResponse("name required");
+
+    let targetLocationId = profile.location_id;
+
+    if (locationId && (profile.user_type === "ADMIN" || profile.user_type === "SUPER_ADMIN")) {
+      const companyLocationIds = await getLocationScope(supabase, profile);
+      if (!companyLocationIds.includes(locationId)) {
+        return errorResponse("Location does not belong to your company");
+      }
+      targetLocationId = locationId;
+    }
 
     const { data: lot, error: insertError } = await supabase
       .from("lots")
-      .insert({ name, location_id: profile.location_id })
+      .insert({ name, location_id: targetLocationId })
       .select("id")
       .single();
 
