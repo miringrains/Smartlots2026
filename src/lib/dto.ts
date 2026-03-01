@@ -9,6 +9,7 @@ export interface UserDTO {
   createdAt: string;
   isFirstLogin: boolean;
   requiresPasswordChange: boolean;
+  isSuspended: boolean;
   location?: {
     id: string;
     name: string;
@@ -95,6 +96,7 @@ export function mapUser(row: any): UserDTO {
     createdAt: row.created_at,
     isFirstLogin: row.is_first_login,
     requiresPasswordChange: row.requires_password_change,
+    isSuspended: row.is_suspended ?? false,
     location: row.locations
       ? {
           id: row.locations.id,

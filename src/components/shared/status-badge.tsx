@@ -12,6 +12,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   USER: { label: "Attendant", variant: "secondary" },
   ADMIN: { label: "Admin", variant: "default" },
   SUPER_ADMIN: { label: "Super Admin", variant: "destructive" },
+  SUSPENDED: { label: "Suspended", variant: "warning" },
 };
 
 export function StatusBadge({ status }: { status: string }) {
