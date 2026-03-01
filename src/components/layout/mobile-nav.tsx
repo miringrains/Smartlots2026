@@ -48,7 +48,7 @@ const navGroups: NavGroup[] = [
     label: "Operations",
     items: [
       { href: "/tickets", label: "Tickets", icon: Ticket },
-      { href: "/lots", label: "Lots & Parking", icon: ParkingSquare },
+      { href: "/locations", label: "Locations & Parking", icon: ParkingSquare },
     ],
   },
   {

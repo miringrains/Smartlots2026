@@ -15,8 +15,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (queryError) return errorResponse("No parking found", 404);
 
   return jsonResponse({
-    lotId: data.lot_id,
-    lotName: data.lot_name,
+    locationId: data.location_id,
+    locationName: data.location_name,
     isBlocked: data.is_blocked,
     blockingNotes: data.blocking_notes,
     parkingPhoto: data.parking_photo,

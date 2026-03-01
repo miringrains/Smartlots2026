@@ -31,23 +31,14 @@ export interface TicketDTO {
   nFiles: number;
   images: string[];
   ticketState: string;
-  spotId: string | null;
   createdAt: string;
   updatedAt: string;
-  spot?: SpotDTO | null;
   parking?: ParkingDTO | null;
 }
 
-export interface SpotDTO {
-  id: string;
-  label: string;
-  lotId: string;
-  spotState: string;
-}
-
 export interface ParkingDTO {
-  lotId: string | null;
-  lotName: string | null;
+  locationId: string | null;
+  locationName: string | null;
   isBlocked: boolean;
   blockingNotes: string;
   parkingPhoto: string | null;
@@ -58,31 +49,31 @@ export interface MovementDTO {
   id: string;
   movedBy: string;
   movedByEmail: string;
-  fromLot: string | null;
-  toLot: string;
+  fromLocationId: string | null;
+  fromLocationName: string | null;
+  toLocationId: string | null;
+  toLocationName: string;
   movedAt: string;
-  isBlocked: boolean;
-  blockingNotes: string;
+  reason: string | null;
 }
 
-export interface LotDTO {
+export interface LocationDTO {
   id: string;
   name: string;
-  locationId: string;
-  spots: SpotDTO[];
-  location?: {
-    id: string;
-    name: string;
-    address: string;
-  };
+  address: string;
+  lat: number | null;
+  lng: number | null;
+  capacity: number;
+  occupied: number;
+  available: number;
 }
 
 export interface OccupancyDTO {
   id: string;
   name: string;
-  totalSpots: number;
-  availableSpots: number;
-  occupiedSpots: number;
+  capacity: number;
+  occupied: number;
+  available: number;
   occupancyRate: number;
 }
 
@@ -124,16 +115,12 @@ export function mapTicket(row: any): TicketDTO {
       ? row.ticket_images.map((img: any) => img.public_url)
       : [],
     ticketState: row.ticket_state,
-    spotId: row.spot_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    spot: row.spots
-      ? { id: row.spots.id, label: row.spots.label, lotId: row.spots.lot_id, spotState: row.spots.spot_state }
-      : null,
     parking: row.ticket_parking
       ? {
-          lotId: row.ticket_parking.lot_id,
-          lotName: row.ticket_parking.lot_name,
+          locationId: row.ticket_parking.location_id,
+          locationName: row.ticket_parking.location_name,
           isBlocked: row.ticket_parking.is_blocked,
           blockingNotes: row.ticket_parking.blocking_notes,
           parkingPhoto: row.ticket_parking.parking_photo,
@@ -143,34 +130,16 @@ export function mapTicket(row: any): TicketDTO {
   };
 }
 
-export function mapLot(row: any): LotDTO {
-  return {
-    id: row.id,
-    name: row.name,
-    locationId: row.location_id,
-    spots: row.spots
-      ? row.spots.map((s: any) => ({
-          id: s.id,
-          label: s.label,
-          lotId: s.lot_id,
-          spotState: s.spot_state,
-        }))
-      : [],
-    location: row.locations
-      ? { id: row.locations.id, name: row.locations.name, address: row.locations.address }
-      : undefined,
-  };
-}
-
 export function mapMovement(row: any): MovementDTO {
   return {
     id: row.id,
     movedBy: row.moved_by,
     movedByEmail: row.moved_by_email,
-    fromLot: row.from_lot,
-    toLot: row.to_lot,
+    fromLocationId: row.from_location_id || null,
+    fromLocationName: row.from_location_name || null,
+    toLocationId: row.to_location_id || null,
+    toLocationName: row.to_location_name,
     movedAt: row.moved_at,
-    isBlocked: row.is_blocked,
-    blockingNotes: row.blocking_notes,
+    reason: row.reason || null,
   };
 }

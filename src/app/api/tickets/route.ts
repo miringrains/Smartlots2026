@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error: queryError } = await supabase
     .from("tickets")
-    .select("*, ticket_images(*), spots(*), ticket_parking(*)")
+    .select("*, ticket_images(*), ticket_parking(*)")
     .in("location_id", locationIds)
     .eq("is_deleted", false)
     .order("created_at", { ascending: false });
@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
   const yearRaw = formData.get("year") as string;
   const licensePlate = formData.get("licensePlate") as string;
   const nFiles = parseInt(formData.get("n_files") as string) || 0;
-  const spotId = formData.get("spotId") as string;
 
   if (!userId) return errorResponse("userId is required");
   if (!locationId) return errorResponse("locationId is required");
@@ -70,7 +69,6 @@ export async function POST(request: NextRequest) {
       year,
       license_plate: licensePlate,
       n_files: nFiles,
-      spot_id: spotId || null,
     })
     .select("id")
     .single();
@@ -141,10 +139,6 @@ export async function POST(request: NextRequest) {
     if (imgInsertError) {
       photoErrors.push(`${position} db: ${imgInsertError.message}`);
     }
-  }
-
-  if (spotId) {
-    await supabase.from("spots").update({ spot_state: "OCCUPIED" }).eq("id", spotId);
   }
 
   return NextResponse.json(

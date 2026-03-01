@@ -11,18 +11,20 @@ import { staggerContainer, staggerItem, pageTransition } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
 import { useCompany } from "@/lib/company-context";
 
+interface LocationStat {
+  id: string;
+  name: string;
+  capacity: number;
+  occupied: number;
+  available: number;
+}
+
 interface Stats {
   totalTickets: number;
   activeTickets: number;
-  totalLots: number;
+  totalLocations: number;
   blockedVehicles: number;
-  lotStats: Array<{
-    id: string;
-    name: string;
-    totalSpots: number;
-    occupiedSpots: number;
-    occupancyRate: number;
-  }>;
+  locationStats: LocationStat[];
   recentTickets: Array<{
     id: string;
     vin: string;
@@ -49,17 +51,16 @@ export default function DashboardPage() {
       const headers = { Authorization: `Bearer ${session.access_token}` };
       const cq = `companyId=${selectedCompany!.id}`;
 
-      const [ticketsRes, lotsRes, statsRes] = await Promise.all([
+      const [ticketsRes, locationsRes] = await Promise.all([
         fetch(`/api/tickets?${cq}`, { headers }),
-        fetch(`/api/lots?${cq}`, { headers }),
-        fetch(`/api/lots/statistics?${cq}`, { headers }),
+        fetch(`/api/locations?${cq}`, { headers }),
       ]);
 
       const tickets = await ticketsRes.json();
-      const lots = await lotsRes.json();
-      const lotStats = await statsRes.json();
+      const locData = await locationsRes.json();
 
       const ticketList = tickets.data || [];
+      const locationList: LocationStat[] = locData.data || [];
       const activeTickets = ticketList.filter(
         (t: { ticketState: string }) => t.ticketState !== "DELIVERED"
       );
@@ -70,9 +71,9 @@ export default function DashboardPage() {
       setStats({
         totalTickets: ticketList.length,
         activeTickets: activeTickets.length,
-        totalLots: (lots.data || []).length,
+        totalLocations: locationList.length,
         blockedVehicles: blockedCount,
-        lotStats: lotStats.data || [],
+        locationStats: locationList,
         recentTickets: ticketList.slice(0, 8).map((t: Record<string, unknown>) => ({
           id: t.id,
           vin: t.vin,
@@ -115,8 +116,8 @@ export default function DashboardPage() {
       color: "text-success",
     },
     {
-      label: "Parking Lots",
-      value: stats?.totalLots || 0,
+      label: "Locations",
+      value: stats?.totalLocations || 0,
       icon: ParkingSquare,
       color: "text-chart-2",
     },
@@ -168,29 +169,32 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp size={16} strokeWidth={1.75} />
-                Lot Occupancy
+                Location Occupancy
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {stats?.lotStats && stats.lotStats.length > 0 ? (
+              {stats?.locationStats && stats.locationStats.length > 0 ? (
                 <div className="space-y-4">
-                  {stats.lotStats.map((lot) => (
-                    <div key={lot.id}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-body-sm font-medium">
-                          {lot.name}
-                        </span>
-                        <span className="text-caption text-muted-foreground">
-                          {lot.occupiedSpots}/{lot.totalSpots} spots
-                        </span>
+                  {stats.locationStats.map((loc) => {
+                    const pct = loc.capacity > 0 ? Math.round((loc.occupied / loc.capacity) * 100) : 0;
+                    return (
+                      <div key={loc.id}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-body-sm font-medium">
+                            {loc.name}
+                          </span>
+                          <span className="text-caption text-muted-foreground">
+                            {loc.occupied}/{loc.capacity} spots
+                          </span>
+                        </div>
+                        <Progress value={pct} />
                       </div>
-                      <Progress value={lot.occupancyRate} />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-body-sm text-muted-foreground py-8 text-center">
-                  No lots configured yet
+                  No locations configured yet
                 </p>
               )}
             </CardContent>

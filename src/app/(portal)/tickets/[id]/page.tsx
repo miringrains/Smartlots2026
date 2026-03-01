@@ -22,6 +22,7 @@ import { pageTransition, staggerItem } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
 import type { TicketDTO, MovementDTO } from "@/lib/dto";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -206,8 +207,8 @@ export default function TicketDetailPage() {
               {ticket.parking ? (
                 <div className="space-y-3">
                   <div>
-                    <p className="text-caption text-muted-foreground">Current Lot</p>
-                    <p className="text-body-sm font-medium">{ticket.parking.lotName || "Unassigned"}</p>
+                    <p className="text-caption text-muted-foreground">Current Location</p>
+                    <p className="text-body-sm font-medium">{ticket.parking.locationName || "Unassigned"}</p>
                   </div>
                   <div>
                     <p className="text-caption text-muted-foreground">Parked At</p>
@@ -239,7 +240,7 @@ export default function TicketDetailPage() {
                     <div key={m.id} className="relative pl-4 border-l-2 border-border pb-3">
                       <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-primary" />
                       <p className="text-body-sm font-medium">
-                        {m.fromLot ? `${m.fromLot} → ${m.toLot}` : `Placed in ${m.toLot}`}
+                        {m.fromLocationName ? `${m.fromLocationName} → ${m.toLocationName}` : `Placed in ${m.toLocationName}`}
                       </p>
                       <p className="text-caption text-muted-foreground">
                         by {m.movedByEmail} · {formatDate(m.movedAt)}
