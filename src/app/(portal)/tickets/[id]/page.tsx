@@ -152,31 +152,46 @@ export default function TicketDetailPage() {
             </CardContent>
           </Card>
 
-          {ticket.images && ticket.images.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Camera size={16} strokeWidth={1.75} />
-                  Photos ({ticket.images.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera size={16} strokeWidth={1.75} />
+                Vehicle Photos
+                {ticket.images && ticket.images.length > 0 && (
+                  <Badge variant="secondary">{ticket.images.length}</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {ticket.images && ticket.images.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {ticket.images.map((url, i) => (
-                    <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aspect-square rounded-lg overflow-hidden bg-muted block hover:ring-2 hover:ring-primary transition-all"
+                    >
                       <Image
                         src={url}
                         alt={`Vehicle photo ${i + 1}`}
                         width={300}
                         height={300}
                         className="object-cover w-full h-full"
+                        unoptimized
                       />
-                    </div>
+                    </a>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Camera size={32} strokeWidth={1.25} className="mb-2 opacity-40" />
+                  <p className="text-body-sm">No photos uploaded for this ticket</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </motion.div>
 
         <motion.div variants={staggerItem} className="space-y-6">

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Search, Plus, Download, Eye } from "lucide-react";
+import { Search, Plus, Download, Eye, Camera } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,9 +146,17 @@ export default function TicketsPage() {
                   {filtered.map((ticket) => (
                     <TableRow key={ticket.id}>
                       <TableCell>
-                        <div>
-                          <p className="font-medium">{ticket.year} {ticket.make} {ticket.model}</p>
-                          <p className="text-caption text-muted-foreground sm:hidden">{ticket.licensePlate}</p>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="font-medium">{ticket.year} {ticket.make} {ticket.model}</p>
+                            <p className="text-caption text-muted-foreground sm:hidden">{ticket.licensePlate}</p>
+                          </div>
+                          {ticket.images && ticket.images.length > 0 && (
+                            <span className="flex items-center gap-0.5 text-muted-foreground" title={`${ticket.images.length} photo(s)`}>
+                              <Camera size={12} />
+                              <span className="text-[11px]">{ticket.images.length}</span>
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-body-sm text-muted-foreground font-mono">

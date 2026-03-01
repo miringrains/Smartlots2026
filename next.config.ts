@@ -6,9 +6,15 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "guoephhxtruardoakyok.supabase.co",
-        pathname: "/storage/v1/object/public/**",
+        pathname: "/storage/v1/object/**",
       },
     ],
+  },
+  serverExternalPackages: [],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "25mb",
+    },
   },
 };
 
