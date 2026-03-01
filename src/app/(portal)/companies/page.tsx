@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, Building2, Loader2, MapPin, Users } from "lucide-react";
+import { Plus, Building2, Loader2, MapPin, Users, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { pageTransition, staggerItem } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
+import { useCompany } from "@/lib/company-context";
 import { formatDateShort } from "@/lib/utils";
 
 interface CompanyRow {
@@ -43,6 +45,8 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
+  const { selectedCompany, setSelectedCompany } = useCompany();
+  const router = useRouter();
 
   const [companyName, setCompanyName] = useState("");
   const [locName, setLocName] = useState("");
@@ -234,29 +238,50 @@ export default function CompaniesPage() {
                     <TableHead className="hidden md:table-cell">
                       Created
                     </TableHead>
+                    <TableHead className="w-8" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {companies.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium flex items-center gap-2">
-                        <Building2
-                          size={14}
-                          className="text-muted-foreground"
-                        />
-                        {c.name}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {c.locationCount}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {c.userCount}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {formatDateShort(c.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {companies.map((c) => {
+                    const isActive = selectedCompany?.id === c.id;
+                    return (
+                      <TableRow
+                        key={c.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => {
+                          setSelectedCompany({ id: c.id, name: c.name });
+                          router.push("/dashboard");
+                        }}
+                      >
+                        <TableCell className="font-medium">
+                          <span className="flex items-center gap-2">
+                            <Building2
+                              size={14}
+                              className={isActive ? "text-primary" : "text-muted-foreground"}
+                            />
+                            {c.name}
+                            {isActive && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                Active
+                              </span>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {c.locationCount}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {c.userCount}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                          {formatDateShort(c.createdAt)}
+                        </TableCell>
+                        <TableCell className="w-8">
+                          <ArrowRight size={14} className="text-muted-foreground" />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

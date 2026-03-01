@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedUser, getUserProfile, getLocationScope, jsonResponse, errorResponse } from "@/lib/api-helpers";
+import { getAuthenticatedUser, getUserProfile, getLocationScope, resolveCompanyId, jsonResponse, errorResponse } from "@/lib/api-helpers";
 import { mapLot } from "@/lib/dto";
 
 export async function GET(request: NextRequest) {
@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
   const profile = await getUserProfile(supabase, user.id);
   if (!profile) return errorResponse("Profile not found", 404);
 
-  const locationIds = await getLocationScope(supabase, profile);
+  const companyId = resolveCompanyId(request, profile);
+  const locationIds = await getLocationScope(supabase, profile, companyId);
 
   const { data, error: queryError } = await supabase
     .from("lots")
@@ -36,7 +37,8 @@ export async function POST(request: NextRequest) {
     let targetLocationId = profile.location_id;
 
     if (locationId && (profile.user_type === "ADMIN" || profile.user_type === "SUPER_ADMIN")) {
-      const companyLocationIds = await getLocationScope(supabase, profile);
+      const cid = resolveCompanyId(request, profile);
+      const companyLocationIds = await getLocationScope(supabase, profile, cid);
       if (!companyLocationIds.includes(locationId)) {
         return errorResponse("Location does not belong to your company");
       }

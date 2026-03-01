@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Ticket,
@@ -13,6 +12,7 @@ import {
   Settings,
   BarChart3,
   Building2,
+  ArrowLeftRight,
   LogOut,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ICON_STROKE_WIDTH } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useCompany } from "@/lib/company-context";
 
 interface NavItem {
   href: string;
@@ -68,22 +68,7 @@ const navGroups: NavGroup[] = [
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [userType, setUserType] = useState<string | null>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return;
-      supabase
-        .from("users")
-        .select("user_type")
-        .eq("id", session.user.id)
-        .single()
-        .then(({ data }) => {
-          if (data) setUserType(data.user_type);
-        });
-    });
-  }, []);
+  const { selectedCompany, setSelectedCompany, isSuper } = useCompany();
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -91,11 +76,14 @@ export function AppSidebar() {
     router.push("/login");
   };
 
-  const isSuperAdmin = userType === "SUPER_ADMIN";
+  const handleSwitchCompany = () => {
+    setSelectedCompany(null);
+    router.push("/companies");
+  };
 
   return (
     <aside className="fixed inset-y-0 left-0 z-[var(--z-sticky)] flex w-[var(--sidebar-width)] flex-col pt-5 lg:pt-6">
-      <div className="flex items-center px-5 pb-6">
+      <div className="flex items-center px-5 pb-4">
         <Link href="/dashboard">
           <Image
             src="/logo-white.webp"
@@ -107,11 +95,35 @@ export function AppSidebar() {
         </Link>
       </div>
 
+      {selectedCompany && (
+        <div className="mx-3 mb-4 rounded-lg bg-white/[0.06] px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                {isSuper ? "Managing" : "Company"}
+              </p>
+              <p className="text-body-sm font-medium text-sidebar-foreground truncate">
+                {selectedCompany.name}
+              </p>
+            </div>
+            {isSuper && (
+              <button
+                onClick={handleSwitchCompany}
+                className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground transition-colors"
+                title="Switch company"
+              >
+                <ArrowLeftRight size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <ScrollArea className="flex-1 px-3">
         <nav className="flex flex-col gap-6">
           {navGroups.map((group) => {
             const visibleItems = group.items.filter(
-              (item) => !item.superAdminOnly || isSuperAdmin
+              (item) => !item.superAdminOnly || isSuper
             );
             if (visibleItems.length === 0) return null;
 

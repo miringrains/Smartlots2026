@@ -36,6 +36,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { pageTransition, staggerItem } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
+import { useCompany } from "@/lib/company-context";
 import { formatDateShort } from "@/lib/utils";
 import type { UserDTO } from "@/lib/dto";
 
@@ -56,8 +57,11 @@ export default function UsersPage() {
   const [newRole, setNewRole] = useState("USER");
   const [newLocationId, setNewLocationId] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const { selectedCompany, ready } = useCompany();
 
   const fetchData = useCallback(async () => {
+    if (!ready || !selectedCompany) return;
+
     const supabase = createClient();
     const {
       data: { session },
@@ -78,6 +82,7 @@ export default function UsersPage() {
     const { data: usersData } = await supabase
       .from("users")
       .select("*, locations(*)")
+      .eq("company_id", selectedCompany.id)
       .eq("is_deleted", false)
       .order("created_at", { ascending: false });
 
@@ -106,6 +111,7 @@ export default function UsersPage() {
     const { data: locData } = await supabase
       .from("locations")
       .select("id, name")
+      .eq("company_id", selectedCompany.id)
       .eq("is_deleted", false)
       .order("name");
 
@@ -114,7 +120,7 @@ export default function UsersPage() {
     }
 
     setLoading(false);
-  }, []);
+  }, [ready, selectedCompany]);
 
   useEffect(() => {
     fetchData();
@@ -146,6 +152,7 @@ export default function UsersPage() {
           password: newPassword,
           userType: newRole,
           locationId: newLocationId || undefined,
+          companyId: selectedCompany?.id,
         }),
       });
 

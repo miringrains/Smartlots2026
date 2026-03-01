@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { pageTransition, staggerItem } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
+import { useCompany } from "@/lib/company-context";
 import { formatDateShort } from "@/lib/utils";
 import type { TicketDTO } from "@/lib/dto";
 
@@ -35,24 +36,28 @@ export default function TicketsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const { selectedCompany, ready } = useCompany();
 
   const fetchTickets = useCallback(async () => {
+    if (!ready || !selectedCompany) return;
+
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
     const headers = { Authorization: `Bearer ${session.access_token}` };
-    let url = "/api/tickets";
+    const cq = `companyId=${selectedCompany.id}`;
+    let url = `/api/tickets?${cq}`;
 
     if (search) {
-      url = `/api/tickets/search?vin=${encodeURIComponent(search)}&licensePlate=${encodeURIComponent(search)}`;
+      url = `/api/tickets/search?${cq}&vin=${encodeURIComponent(search)}&licensePlate=${encodeURIComponent(search)}`;
     }
 
     const res = await fetch(url, { headers });
     const data = await res.json();
     setTickets(data.data || []);
     setLoading(false);
-  }, [search]);
+  }, [search, ready, selectedCompany]);
 
   useEffect(() => {
     fetchTickets();

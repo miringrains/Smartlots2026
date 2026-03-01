@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getAuthenticatedUser, getUserProfile, getLocationScope, jsonResponse, errorResponse } from "@/lib/api-helpers";
+import { getAuthenticatedUser, getUserProfile, getLocationScope, resolveCompanyId, jsonResponse, errorResponse } from "@/lib/api-helpers";
 import { mapTicket } from "@/lib/dto";
 
 export async function GET(request: NextRequest) {
@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
   const profile = await getUserProfile(supabase, user.id);
   if (!profile) return errorResponse("Profile not found", 404);
 
-  const locationIds = await getLocationScope(supabase, profile);
+  const companyId = resolveCompanyId(request, profile);
+  const locationIds = await getLocationScope(supabase, profile, companyId);
 
   const url = new URL(request.url);
   const vin = url.searchParams.get("vin");

@@ -29,6 +29,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { pageTransition, staggerContainer, staggerItem } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
+import { useCompany } from "@/lib/company-context";
 import type { LotDTO, OccupancyDTO } from "@/lib/dto";
 
 interface LocationOption {
@@ -46,14 +47,18 @@ export default function LotsPage() {
   const [newSpots, setNewSpots] = useState("");
   const [newLocationId, setNewLocationId] = useState("");
   const [creating, setCreating] = useState(false);
+  const { selectedCompany, ready } = useCompany();
 
   const fetchData = useCallback(async () => {
+    if (!ready || !selectedCompany) return;
+
     const supabase = createClient();
     const {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session) return;
     const headers = { Authorization: `Bearer ${session.access_token}` };
+    const cq = `companyId=${selectedCompany.id}`;
 
     const { data: me } = await supabase
       .from("users")
@@ -71,14 +76,15 @@ export default function LotsPage() {
     const { data: locData } = await supabase
       .from("locations")
       .select("id, name")
+      .eq("company_id", selectedCompany.id)
       .eq("is_deleted", false)
       .order("name");
 
     if (locData) setLocations(locData);
 
     const [lotsRes, statsRes] = await Promise.all([
-      fetch("/api/lots", { headers }),
-      fetch("/api/lots/statistics", { headers }),
+      fetch(`/api/lots?${cq}`, { headers }),
+      fetch(`/api/lots/statistics?${cq}`, { headers }),
     ]);
 
     const lotsData = await lotsRes.json();
@@ -86,7 +92,7 @@ export default function LotsPage() {
     setLots(lotsData.data || []);
     setStats(statsData.data || []);
     setLoading(false);
-  }, []);
+  }, [ready, selectedCompany]);
 
   useEffect(() => {
     fetchData();

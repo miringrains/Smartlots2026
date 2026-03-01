@@ -59,15 +59,27 @@ export async function getUserProfile(
   return data;
 }
 
+export function resolveCompanyId(request: Request, profile: any): string {
+  if (profile.user_type === "SUPER_ADMIN") {
+    const url = new URL(request.url);
+    const override = url.searchParams.get("companyId");
+    if (override) return override;
+  }
+  return profile.company_id;
+}
+
 export async function getLocationScope(
   supabase: any,
-  profile: any
+  profile: any,
+  overrideCompanyId?: string
 ): Promise<string[]> {
+  const companyId = overrideCompanyId || profile.company_id;
+
   if (profile.user_type === "ADMIN" || profile.user_type === "SUPER_ADMIN") {
     const { data } = await supabase
       .from("locations")
       .select("id")
-      .eq("company_id", profile.company_id)
+      .eq("company_id", companyId)
       .eq("is_deleted", false);
     return (data || []).map((l: any) => l.id);
   }

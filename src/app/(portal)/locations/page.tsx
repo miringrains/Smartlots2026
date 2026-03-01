@@ -20,6 +20,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { pageTransition, staggerContainer, staggerItem } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
+import { useCompany } from "@/lib/company-context";
 
 interface LocationData {
   id: string;
@@ -36,12 +37,16 @@ export default function LocationsPage() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const { selectedCompany, ready } = useCompany();
 
   async function fetchLocations() {
+    if (!ready || !selectedCompany) return;
+
     const supabase = createClient();
     const { data } = await supabase
       .from("locations")
       .select("*, lots(id)")
+      .eq("company_id", selectedCompany.id)
       .eq("is_deleted", false)
       .order("name");
 
@@ -60,26 +65,18 @@ export default function LocationsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchLocations(); }, []);
+  useEffect(() => { fetchLocations(); }, [ready, selectedCompany]);
 
   async function createLocation() {
-    if (!newName.trim() || !newAddress.trim()) return;
+    if (!newName.trim() || !newAddress.trim() || !selectedCompany) return;
     setCreating(true);
     const supabase = createClient();
 
-    const { data: profile } = await supabase
-      .from("users")
-      .select("company_id")
-      .eq("id", (await supabase.auth.getUser()).data.user?.id || "")
-      .single();
-
-    if (profile?.company_id) {
-      await supabase.from("locations").insert({
-        name: newName,
-        address: newAddress,
-        company_id: profile.company_id,
-      });
-    }
+    await supabase.from("locations").insert({
+      name: newName,
+      address: newAddress,
+      company_id: selectedCompany.id,
+    });
 
     setNewName("");
     setNewAddress("");

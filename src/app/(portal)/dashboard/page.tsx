@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/shared/page-header";
 import { staggerContainer, staggerItem, pageTransition } from "@/lib/motion";
 import { createClient } from "@/lib/supabase/client";
+import { useCompany } from "@/lib/company-context";
 
 interface Stats {
   totalTickets: number;
@@ -35,19 +36,23 @@ interface Stats {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const { selectedCompany, ready } = useCompany();
 
   useEffect(() => {
+    if (!ready || !selectedCompany) return;
+
     async function fetchStats() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       const headers = { Authorization: `Bearer ${session.access_token}` };
+      const cq = `companyId=${selectedCompany!.id}`;
 
       const [ticketsRes, lotsRes, statsRes] = await Promise.all([
-        fetch("/api/tickets", { headers }),
-        fetch("/api/lots", { headers }),
-        fetch("/api/lots/statistics", { headers }),
+        fetch(`/api/tickets?${cq}`, { headers }),
+        fetch(`/api/lots?${cq}`, { headers }),
+        fetch(`/api/lots/statistics?${cq}`, { headers }),
       ]);
 
       const tickets = await ticketsRes.json();
@@ -81,7 +86,7 @@ export default function DashboardPage() {
     }
 
     fetchStats();
-  }, []);
+  }, [ready, selectedCompany]);
 
   if (loading) {
     return (
