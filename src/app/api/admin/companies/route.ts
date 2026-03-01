@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import {
   getAuthenticatedUser,
   getUserProfile,
@@ -133,6 +134,15 @@ export async function POST(request: NextRequest) {
         `Company created, but admin profile failed: ${profileErr.message}`
       );
     }
+
+    const origin = request.headers.get("origin") || "https://admin.smartlotpro.com";
+    const anonClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    await anonClient.auth.resetPasswordForEmail(adminUser.email, {
+      redirectTo: `${origin}/reset-password`,
+    });
   }
 
   return jsonResponse(
