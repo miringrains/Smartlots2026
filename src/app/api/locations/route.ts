@@ -6,6 +6,7 @@ import {
   jsonResponse,
   errorResponse,
 } from "@/lib/api-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   const { user, supabase, error } = await getAuthenticatedUser(request);
@@ -17,7 +18,9 @@ export async function GET(request: NextRequest) {
 
   const companyId = resolveCompanyId(request, profile);
 
-  const { data: locations, error: qErr } = await supabase
+  const admin = createAdminClient();
+
+  const { data: locations, error: qErr } = await admin
     .from("locations")
     .select("*")
     .eq("company_id", companyId)
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest) {
 
   let occupancyMap: Record<string, number> = {};
   if (locationIds.length > 0) {
-    const { data: parking } = await supabase
+    const { data: parking } = await admin
       .from("ticket_parking")
       .select("location_id")
       .in("location_id", locationIds);
@@ -78,7 +81,8 @@ export async function POST(request: NextRequest) {
 
   const companyId = resolveCompanyId(request, profile);
 
-  const { data, error: insertErr } = await supabase
+  const admin = createAdminClient();
+  const { data, error: insertErr } = await admin
     .from("locations")
     .insert({
       company_id: companyId,
@@ -124,7 +128,8 @@ export async function PATCH(request: NextRequest) {
     return errorResponse("No fields to update");
   }
 
-  const { error: updateErr } = await supabase
+  const admin = createAdminClient();
+  const { error: updateErr } = await admin
     .from("locations")
     .update(updates)
     .eq("id", locationId);
