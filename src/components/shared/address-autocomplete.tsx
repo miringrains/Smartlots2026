@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { MapPin, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -36,12 +37,15 @@ export function AddressAutocomplete({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const inputWrapperRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const search = useCallback(async (query: string) => {
     if (!query || query.length < 3 || !MAPBOX_TOKEN) {
       setSuggestions([]);
+      setOpen(false);
       return;
     }
 
@@ -78,14 +82,30 @@ export function AddressAutocomplete({
       );
 
       setSuggestions(results);
-      setOpen(results.length > 0);
+      if (results.length > 0) {
+        setOpen(true);
+        updateDropdownPosition();
+      } else {
+        setOpen(false);
+      }
       setHighlightIdx(-1);
     } catch {
       setSuggestions([]);
+      setOpen(false);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  function updateDropdownPosition() {
+    if (!inputWrapperRef.current) return;
+    const rect = inputWrapperRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
+  }
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -97,9 +117,12 @@ export function AddressAutocomplete({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
       if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(e.target as Node)
+        inputWrapperRef.current &&
+        !inputWrapperRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
       ) {
         setOpen(false);
       }
@@ -107,6 +130,19 @@ export function AddressAutocomplete({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleScroll() {
+      updateDropdownPosition();
+    }
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [open]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (!open || suggestions.length === 0) return;
@@ -132,9 +168,49 @@ export function AddressAutocomplete({
     setSuggestions([]);
   }
 
+  const dropdown =
+    open && suggestions.length > 0
+      ? createPortal(
+          <div
+            ref={dropdownRef}
+            className="fixed rounded-lg border border-border bg-popover shadow-lg overflow-hidden"
+            style={{
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              width: dropdownPos.width,
+              zIndex: 9999,
+            }}
+          >
+            {suggestions.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => pickSuggestion(s)}
+                className={cn(
+                  "flex items-start gap-2.5 w-full px-3 py-2.5 text-left text-body-sm transition-colors",
+                  i === highlightIdx
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-muted/50"
+                )}
+              >
+                <MapPin
+                  size={13}
+                  className="mt-0.5 shrink-0 text-primary"
+                />
+                <span className="line-clamp-2">{s.fullText}</span>
+              </button>
+            ))}
+            <div className="px-3 py-1.5 text-[10px] text-muted-foreground/60 border-t border-border/50">
+              Powered by Mapbox
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
-    <div ref={wrapperRef} className={cn("relative", className)}>
-      <div className="relative">
+    <div className={cn("relative", className)}>
+      <div ref={inputWrapperRef} className="relative">
         <MapPin
           size={14}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
@@ -143,7 +219,12 @@ export function AddressAutocomplete({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onFocus={() => {
+            if (suggestions.length > 0) {
+              updateDropdownPosition();
+              setOpen(true);
+            }
+          }}
           placeholder={placeholder}
           className="pl-9 pr-8"
         />
@@ -159,6 +240,7 @@ export function AddressAutocomplete({
             onClick={() => {
               onChange("");
               setSuggestions([]);
+              setOpen(false);
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -166,33 +248,7 @@ export function AddressAutocomplete({
           </button>
         )}
       </div>
-
-      {open && suggestions.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
-          {suggestions.map((s, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => pickSuggestion(s)}
-              className={cn(
-                "flex items-start gap-2.5 w-full px-3 py-2.5 text-left text-body-sm transition-colors",
-                i === highlightIdx
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-muted/50"
-              )}
-            >
-              <MapPin
-                size={13}
-                className="mt-0.5 shrink-0 text-primary"
-              />
-              <span className="line-clamp-2">{s.fullText}</span>
-            </button>
-          ))}
-          <div className="px-3 py-1.5 text-[10px] text-muted-foreground/60 border-t border-border/50">
-            Powered by Mapbox
-          </div>
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }
