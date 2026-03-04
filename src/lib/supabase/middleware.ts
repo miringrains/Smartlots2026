@@ -1,7 +1,31 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const MARKETING_HOSTS = ["smartlotpro.com", "www.smartlotpro.com"];
+
+const MARKETING_ROUTES = ["/home", "/privacy", "/terms", "/support"];
+
 export async function updateSession(request: NextRequest) {
+  const host = request.headers.get("host") ?? "";
+  const hostname = host.split(":")[0];
+  const isMarketingDomain = MARKETING_HOSTS.includes(hostname);
+  const pathname = request.nextUrl.pathname;
+
+  if (isMarketingDomain) {
+    const isMarketingRoute =
+      pathname === "/" ||
+      MARKETING_ROUTES.some((r) => pathname.startsWith(r));
+
+    if (!isMarketingRoute) {
+      const url = request.nextUrl.clone();
+      url.hostname = "admin.smartlotpro.com";
+      url.port = "";
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -13,7 +37,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({ request });
@@ -30,16 +54,17 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isAuthRoute =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/forgot-password") ||
-    request.nextUrl.pathname.startsWith("/reset-password");
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password");
 
   const isPublicRoute =
-    request.nextUrl.pathname.startsWith("/privacy") ||
-    request.nextUrl.pathname.startsWith("/terms") ||
-    request.nextUrl.pathname.startsWith("/support");
+    pathname.startsWith("/privacy") ||
+    pathname.startsWith("/terms") ||
+    pathname.startsWith("/support") ||
+    pathname.startsWith("/home");
 
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api");
+  const isApiRoute = pathname.startsWith("/api");
 
   if (!user && !isAuthRoute && !isApiRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
