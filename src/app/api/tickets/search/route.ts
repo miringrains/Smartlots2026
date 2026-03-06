@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("tickets")
-    .select("*, ticket_images(*), spots(*), ticket_parking(*)")
+    .select("*, ticket_images(*), ticket_parking(*)")
     .in("location_id", locationIds)
     .eq("is_deleted", false);
 

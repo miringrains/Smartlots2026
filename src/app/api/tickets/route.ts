@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getAuthenticatedUser, getUserProfile, getLocationScope, resolveCompanyId, jsonResponse, errorResponse } from "@/lib/api-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { mapTicket } from "@/lib/dto";
 
 export async function GET(request: NextRequest) {
@@ -141,14 +142,36 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json(
+  const admin = createAdminClient();
+  const { data: fullTicket } = await admin
+    .from("tickets")
+    .select("*, ticket_images(*), ticket_parking(*)")
+    .eq("id", ticket.id)
+    .single();
+
+  if (fullTicket) {
+    return jsonResponse(mapTicket(fullTicket), 201);
+  }
+
+  return jsonResponse(
     {
-      data: { id: ticket.id },
-      photosReceived: photos.length,
-      matchedFormDataKey: matchedKey || null,
-      formDataFileEntries: fileEntries,
-      ...(photoErrors.length > 0 ? { photoWarnings: photoErrors } : {}),
+      id: ticket.id,
+      userId,
+      locationId,
+      email: email || "",
+      ticketNumber: ticketNumber || null,
+      vin,
+      make,
+      model,
+      year,
+      licensePlate,
+      nFiles: nFiles,
+      images: [],
+      ticketState: "DOCUMENTED",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      parking: null,
     },
-    { status: 201 }
+    201
   );
 }
