@@ -43,7 +43,7 @@ export function AddressAutocomplete({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const search = useCallback(async (query: string) => {
-    if (!query || query.length < 3 || !MAPBOX_TOKEN) {
+    if (!query || query.length < 2 || !MAPBOX_TOKEN) {
       setSuggestions([]);
       setOpen(false);
       return;
@@ -109,7 +109,7 @@ export function AddressAutocomplete({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(value), 300);
+    debounceRef.current = setTimeout(() => search(value), 180);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };

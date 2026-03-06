@@ -262,6 +262,10 @@ export function MapPinPlacer({
           0%, 100% { box-shadow: 0 0 0 4px rgba(238,63,67,0.2), 0 3px 12px rgba(0,0,0,0.4); }
           50% { box-shadow: 0 0 0 8px rgba(238,63,67,0.1), 0 3px 12px rgba(0,0,0,0.4); }
         }
+        .mapboxgl-ctrl-logo,
+        .mapboxgl-ctrl-attrib {
+          display: none !important;
+        }
       `}</style>
     </div>
   );
