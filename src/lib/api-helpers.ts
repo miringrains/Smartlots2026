@@ -113,13 +113,10 @@ export async function getLocationScope(
 ): Promise<string[]> {
   const companyId = overrideCompanyId || profile.company_id;
 
-  if (profile.user_type === "ADMIN" || profile.user_type === "SUPER_ADMIN") {
-    const { data } = await supabase
-      .from("locations")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("is_deleted", false);
-    return (data || []).map((l: any) => l.id);
-  }
-  return [profile.location_id];
+  const { data } = await supabase
+    .from("locations")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("is_deleted", false);
+  return (data || []).map((l: any) => l.id);
 }

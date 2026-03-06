@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   KeyRound,
   UserCog,
-  MapPin,
   Trash2,
   UserX,
   UserCheck,
@@ -72,24 +71,18 @@ import { useCompany } from "@/lib/company-context";
 import { formatDateShort } from "@/lib/utils";
 import type { UserDTO } from "@/lib/dto";
 
-interface LocationOption {
-  id: string;
-  name: string;
-}
-
 type ConfirmAction = {
   type: "delete" | "suspend" | "unsuspend" | "resetPassword";
   user: UserDTO;
 } | null;
 
 type EditAction = {
-  type: "changeRole" | "changeLocation";
+  type: "changeRole";
   user: UserDTO;
 } | null;
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserDTO[]>([]);
-  const [locations, setLocations] = useState<LocationOption[]>([]);
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     userType: string;
@@ -105,7 +98,6 @@ export default function UsersPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState("USER");
-  const [newLocationId, setNewLocationId] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
@@ -143,7 +135,6 @@ export default function UsersPage() {
         userType: me.user_type,
         companyId: me.company_id,
       });
-      setNewLocationId(me.location_id || "");
     }
 
     const { data: usersData } = await supabase
@@ -176,14 +167,6 @@ export default function UsersPage() {
       );
     }
 
-    const { data: locData } = await supabase
-      .from("locations")
-      .select("id, name")
-      .eq("company_id", selectedCompany.id)
-      .eq("is_deleted", false)
-      .order("name");
-
-    if (locData) setLocations(locData);
     setLoading(false);
   }, [ready, selectedCompany]);
 
@@ -213,7 +196,6 @@ export default function UsersPage() {
           email: newEmail,
           password: newPassword,
           userType: newRole,
-          locationId: newLocationId || undefined,
           companyId: selectedCompany?.id,
         }),
       });
@@ -228,7 +210,6 @@ export default function UsersPage() {
       setNewEmail("");
       setNewPassword("");
       setNewRole("USER");
-      setNewLocationId("");
       setOpen(false);
       fetchData();
     } catch {
@@ -348,42 +329,22 @@ export default function UsersPage() {
                   placeholder="Temporary password"
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select value={newRole} onValueChange={setNewRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USER">Attendant</SelectItem>
-                      <SelectItem value="ADMIN">Admin</SelectItem>
-                      {isSuperAdmin && (
-                        <SelectItem value="SUPER_ADMIN">
-                          Super Admin
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Location</Label>
-                  <Select
-                    value={newLocationId}
-                    onValueChange={setNewLocationId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.map((loc) => (
-                        <SelectItem key={loc.id} value={loc.id}>
-                          {loc.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={newRole} onValueChange={setNewRole}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USER">Attendant</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                    {isSuperAdmin && (
+                      <SelectItem value="SUPER_ADMIN">
+                        Super Admin
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               {errorMsg && (
                 <p className="text-sm text-destructive">{errorMsg}</p>
@@ -497,9 +458,6 @@ export default function UsersPage() {
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead className="hidden sm:table-cell">
-                      Location
-                    </TableHead>
                     <TableHead className="hidden md:table-cell">
                       Status
                     </TableHead>
@@ -518,20 +476,12 @@ export default function UsersPage() {
                         className={u.isSuspended ? "opacity-60" : ""}
                       >
                         <TableCell>
-                          <div>
-                            <p className="font-medium text-body-sm">
-                              {u.email}
-                            </p>
-                            <p className="text-caption text-muted-foreground sm:hidden">
-                              {u.location?.name || "\u2014"}
-                            </p>
-                          </div>
+                          <p className="font-medium text-body-sm">
+                            {u.email}
+                          </p>
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={u.userType} />
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground text-body-sm">
-                          {u.location?.name || "\u2014"}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           {u.isSuspended ? (
@@ -567,17 +517,6 @@ export default function UsersPage() {
                                   >
                                     <UserCog size={14} />
                                     Change Role
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      setEditAction({
-                                        type: "changeLocation",
-                                        user: u,
-                                      })
-                                    }
-                                  >
-                                    <MapPin size={14} />
-                                    Change Location
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() =>
@@ -688,7 +627,7 @@ export default function UsersPage() {
         )}
       </AlertDialog>
 
-      {/* Edit dialog for changeRole / changeLocation */}
+      {/* Edit dialog for changeRole */}
       <Dialog
         open={!!editAction}
         onOpenChange={(open) => {
@@ -701,43 +640,24 @@ export default function UsersPage() {
         {editAction && (
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>
-                {editAction.type === "changeRole"
-                  ? "Change Role"
-                  : "Change Location"}
-              </DialogTitle>
+              <DialogTitle>Change Role</DialogTitle>
             </DialogHeader>
             <div className="py-4 space-y-3">
               <p className="text-body-sm text-muted-foreground">
                 Updating <span className="font-medium text-foreground">{editAction.user.email}</span>
               </p>
-              {editAction.type === "changeRole" ? (
-                <Select value={editValue} onValueChange={setEditValue}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select new role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USER">Attendant</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
-                    {isSuperAdmin && (
-                      <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Select value={editValue} onValueChange={setEditValue}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select new location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select value={editValue} onValueChange={setEditValue}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select new role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USER">Attendant</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  {isSuperAdmin && (
+                    <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <DialogClose asChild>
@@ -747,9 +667,7 @@ export default function UsersPage() {
                 disabled={!editValue || actionLoading}
                 onClick={() =>
                   executeAction(editAction.type, editAction.user.id, {
-                    [editAction.type === "changeRole"
-                      ? "userType"
-                      : "locationId"]: editValue,
+                    userType: editValue,
                   })
                 }
               >
