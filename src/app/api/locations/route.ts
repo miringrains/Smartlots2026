@@ -8,6 +8,14 @@ import {
 } from "@/lib/api-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+
+function staticMapUrl(lat: number, lng: number): string {
+  if (!MAPBOX_TOKEN || !lat || !lng) return "";
+  const pin = `pin-s+ee3f43(${lng},${lat})`;
+  return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/${pin}/${lng},${lat},15,0/400x200@2x?access_token=${MAPBOX_TOKEN}&logo=false&attribution=false`;
+}
+
 export async function GET(request: NextRequest) {
   const { user, supabase, error } = await getAuthenticatedUser(request);
   if (error || !user || !supabase)
@@ -56,6 +64,7 @@ export async function GET(request: NextRequest) {
       capacity: loc.capacity || 0,
       occupied,
       available: Math.max(0, (loc.capacity || 0) - occupied),
+      mapPreviewUrl: loc.lat && loc.lng ? staticMapUrl(loc.lat, loc.lng) : null,
     };
   });
 
