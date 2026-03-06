@@ -55,6 +55,8 @@ export interface MovementDTO {
   toLocationName: string;
   movedAt: string;
   reason: string | null;
+  isBlocked: boolean;
+  blockingNotes: string;
 }
 
 export interface LocationDTO {
@@ -141,5 +143,7 @@ export function mapMovement(row: any): MovementDTO {
     toLocationName: row.to_location_name,
     movedAt: row.moved_at,
     reason: row.reason || null,
+    isBlocked: row.is_blocked ?? false,
+    blockingNotes: row.blocking_notes ?? "",
   };
 }

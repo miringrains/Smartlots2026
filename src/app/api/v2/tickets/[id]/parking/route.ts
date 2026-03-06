@@ -5,6 +5,7 @@ import {
   messageResponse,
   errorResponse,
 } from "@/lib/api-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
   request: NextRequest,
@@ -15,7 +16,8 @@ export async function GET(
   if (error || !user || !supabase)
     return errorResponse(error || "Unauthorized", 401);
 
-  const { data, error: qErr } = await supabase
+  const admin = createAdminClient();
+  const { data, error: qErr } = await admin
     .from("ticket_parking")
     .select("*")
     .eq("ticket_id", id)
@@ -55,7 +57,9 @@ export async function PUT(
 
     if (!locationId) return errorResponse("locationId is required");
 
-    const { data: location } = await supabase
+    const admin = createAdminClient();
+
+    const { data: location } = await admin
       .from("locations")
       .select("name, capacity")
       .eq("id", locationId)
@@ -63,13 +67,13 @@ export async function PUT(
 
     if (!location) return errorResponse("Location not found", 404);
 
-    const { count: occupiedCount } = await supabase
+    const { count: occupiedCount } = await admin
       .from("ticket_parking")
       .select("id", { count: "exact", head: true })
       .eq("location_id", locationId);
 
     const occupied = occupiedCount || 0;
-    const { data: existingParking } = await supabase
+    const { data: existingParking } = await admin
       .from("ticket_parking")
       .select("location_id")
       .eq("ticket_id", id)
@@ -97,13 +101,13 @@ export async function PUT(
     };
 
     if (existingParking) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await admin
         .from("ticket_parking")
         .update(parkingData)
         .eq("ticket_id", id);
       if (updateError) return errorResponse(updateError.message);
     } else {
-      const { error: insertError } = await supabase
+      const { error: insertError } = await admin
         .from("ticket_parking")
         .insert(parkingData);
       if (insertError) return errorResponse(insertError.message);
@@ -124,7 +128,8 @@ export async function DELETE(
   if (error || !user || !supabase)
     return errorResponse(error || "Unauthorized", 401);
 
-  const { error: delErr } = await supabase
+  const admin = createAdminClient();
+  const { error: delErr } = await admin
     .from("ticket_parking")
     .delete()
     .eq("ticket_id", id);

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import {
   getAuthenticatedUser,
   getUserProfile,
   jsonResponse,
   errorResponse,
 } from "@/lib/api-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { mapMovement } from "@/lib/dto";
 
 export async function GET(
@@ -16,7 +17,8 @@ export async function GET(
   if (error || !user || !supabase)
     return errorResponse(error || "Unauthorized", 401);
 
-  const { data, error: queryError } = await supabase
+  const admin = createAdminClient();
+  const { data, error: queryError } = await admin
     .from("parking_movements")
     .select("*")
     .eq("ticket_id", id)
@@ -44,7 +46,9 @@ export async function POST(
 
     if (!toLocationId) return errorResponse("toLocationId is required");
 
-    const { data: toLocation } = await supabase
+    const admin = createAdminClient();
+
+    const { data: toLocation } = await admin
       .from("locations")
       .select("name, capacity")
       .eq("id", toLocationId)
@@ -52,12 +56,12 @@ export async function POST(
 
     if (!toLocation) return errorResponse("Destination location not found", 404);
 
-    const { count: destOccupied } = await supabase
+    const { count: destOccupied } = await admin
       .from("ticket_parking")
       .select("id", { count: "exact", head: true })
       .eq("location_id", toLocationId);
 
-    const { data: currentParking } = await supabase
+    const { data: currentParking } = await admin
       .from("ticket_parking")
       .select("location_id, location_name")
       .eq("ticket_id", id)
@@ -70,12 +74,12 @@ export async function POST(
       (destOccupied || 0) >= toLocation.capacity
     ) {
       return errorResponse(
-        `Destination "${toLocation.name}" is full (${destOccupied}/${toLocation.capacity})`,
+        `Location "${toLocation.name}" is full (${destOccupied}/${toLocation.capacity})`,
         409
       );
     }
 
-    const { data: movement, error: insertError } = await supabase
+    const { data: movement, error: insertError } = await admin
       .from("parking_movements")
       .insert({
         ticket_id: id,
@@ -93,40 +97,32 @@ export async function POST(
 
     if (insertError) return errorResponse(insertError.message);
 
-    const { error: parkErr } = await supabase
-      .from("ticket_parking")
-      .upsert(
-        {
-          ticket_id: id,
+    if (currentParking) {
+      const { error: updateErr } = await admin
+        .from("ticket_parking")
+        .update({
           location_id: toLocationId,
           location_name: toLocation.name,
-          is_blocked: false,
-          blocking_notes: "",
-        },
-        { onConflict: "ticket_id" }
-      );
+          parked_at: new Date().toISOString(),
+        })
+        .eq("ticket_id", id);
 
-    if (parkErr) {
-      if (currentParking) {
-        await supabase
-          .from("ticket_parking")
-          .update({
-            location_id: toLocationId,
-            location_name: toLocation.name,
-          })
-          .eq("ticket_id", id);
-      } else {
-        await supabase.from("ticket_parking").insert({
+      if (updateErr) return errorResponse(updateErr.message);
+    } else {
+      const { error: insertErr } = await admin
+        .from("ticket_parking")
+        .insert({
           ticket_id: id,
           location_id: toLocationId,
           location_name: toLocation.name,
           is_blocked: false,
           blocking_notes: "",
         });
-      }
+
+      if (insertErr) return errorResponse(insertErr.message);
     }
 
-    return NextResponse.json({ data: { id: movement.id } }, { status: 201 });
+    return jsonResponse({ id: movement.id });
   } catch {
     return errorResponse("Internal server error", 500);
   }

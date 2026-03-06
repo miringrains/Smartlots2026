@@ -79,7 +79,9 @@ export async function GET(
       createdAt: t.created_at,
       parking: p
         ? {
+            locationId: locationId,
             locationName: p.location_name,
+            parked: true,
             isBlocked: p.is_blocked,
             blockingNotes: p.blocking_notes,
             parkingPhoto: p.parking_photo,
